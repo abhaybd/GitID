@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+stdout=$(python -m gitid.main "$@" 2>&1)
+ret=$?
+
+if [[ $ret -eq "99" ]]; then
+    eval "${stdout}"
+elif [[ -n "${stdout}" ]]; then
+    echo "${stdout}"
+fi

@@ -1,0 +1,153 @@
+import argparse
+import sys
+from typing import List
+import os
+import yaml
+
+
+CONF_PATH = os.path.join(os.environ["HOME"], ".gitid.conf")
+
+
+def setup():
+    # perform first time setup, if necessary
+    if not os.path.isfile(CONF_PATH):
+        init_conf = {
+            "identities": {}
+        }
+        save_conf(init_conf)
+
+
+def load_conf():
+    with open(CONF_PATH) as f:
+        conf = yaml.safe_load(f)
+    return conf
+
+
+def save_conf(conf):
+    with open(CONF_PATH, "w") as f:
+        yaml.dump(conf, f)
+
+
+def is_active(id_name):
+    return "ACTIVE_GITID" in os.environ and os.environ["ACTIVE_GITID"] == id_name
+
+
+def set_id(conf, args) -> List[str]:
+    ids = conf["identities"]
+    if args.identity not in ids:
+        print(f"Unknown identity {args.identity}", file=sys.stderr)
+        sys.exit(1)
+    entry = ids[args.identity]
+    commands = [
+        f"export ACTIVE_GITID=\"{args.identity}\"",
+        f"export GIT_AUTHOR_NAME=\"{entry['name']}\"",
+        f"export GIT_AUTHOR_EMAIL=\"{entry['email']}\"",
+        f"export GIT_COMMITTER_NAME=\"{entry['name']}\"",
+        f"export GIT_COMMITTER_EMAIL=\"{entry['email']}\"",
+    ]
+    return commands
+
+
+def list_ids(conf, _):
+    ids = conf["identities"]
+    if len(ids) == 0:
+        print("No stored identities to display.")
+    else:
+        print("Stored identities:")
+        for id_name, entry in sorted(ids.items()):
+            active = '*' if is_active(id_name) else ' '
+            print(f"\t({active}) {id_name}: {entry['name']} <{entry['email']}>")
+    return []
+
+
+def add_id(conf, args):
+    ids = conf["identities"]
+    if args.identity in ids:
+        print(
+            f"Identity already exists: {args.identity}. To update an identity, remove it and re-add it.", file=sys.stderr)
+        sys.exit(1)
+    ids[args.identity] = {
+        "name": args.name,
+        "email": args.email
+    }
+    save_conf(conf)
+    return []
+
+
+def remove_id(conf, args) -> List[str]:
+    ids = conf["identities"]
+    if args.identity not in ids:
+        print(f"Unknown identity {args.identity}", file=sys.stderr)
+        sys.exit(1)
+    del ids[args.identity]
+    save_conf(conf)
+    if is_active(args.identity):
+        return [
+            "unset ACTIVE_GITID",
+            "unset GIT_AUTHOR_NAME",
+            "unset GIT_AUTHOR_EMAIL",
+            "unset GIT_COMMITTER_NAME",
+            "unset GIT_COMMITTER_EMAIL"
+        ]
+    else:
+        return []
+
+
+def clear_ids(conf, _):
+    conf["identities"].clear()
+    save_conf(conf)
+    return [
+        "unset ACTIVE_GITID",
+        "unset GIT_AUTHOR_NAME",
+        "unset GIT_AUTHOR_EMAIL",
+        "unset GIT_COMMITTER_NAME",
+        "unset GIT_COMMITTER_EMAIL"
+    ]
+
+
+def get_args():
+    parser = argparse.ArgumentParser(
+        prog="gitid",
+        description="Command-line tool for managing multiple git identities on the same machine.")
+    subparsers = parser.add_subparsers(required=True)
+
+    set_parser = subparsers.add_parser("set", help="Set the active identity")
+    set_parser.add_argument("identity", help="The identity to activate")
+    set_parser.set_defaults(func=set_id)
+
+    list_parser = subparsers.add_parser("list", help="List the stored identities")
+    list_parser.set_defaults(func=list_ids)
+
+    add_parser = subparsers.add_parser("add", help="Add a new identity")
+    add_parser.add_argument("identity", help="The nickname of the identity to add")
+    add_parser.add_argument(
+        "name", help="The name of the identity to add, which will be associated with git commits")
+    add_parser.add_argument(
+        "email", help="The email of the identity to add, which will be associated with git commits")
+    add_parser.set_defaults(func=add_id)
+
+    remove_parser = subparsers.add_parser("remove", help="Remove an existing identity")
+    remove_parser.add_argument("identity", help="The identity to remove")
+    remove_parser.set_defaults(func=remove_id)
+
+    clear_parser = subparsers.add_parser("clear", help="Clear all stored identities")
+    clear_parser.set_defaults(func=clear_ids)
+
+    return parser.parse_args()
+
+
+def main():
+    args = get_args()
+    setup()
+
+    conf = load_conf()
+    commands = args.func(conf, args)
+
+    if commands:
+        print("\n".join(commands))
+        # return code 99 signals the caller to execute the contents of stdout
+        sys.exit(99)
+
+
+if __name__ == "__main__":
+    main()
