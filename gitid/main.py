@@ -6,6 +6,10 @@ import yaml
 
 
 CONF_PATH = os.path.join(os.environ["HOME"], ".gitid.conf")
+SHELL_CONF_PATHS = {
+    "bash": [".bash_aliases", ".bashrc"],
+    "zsh": [".zsh_aliases", ".zshrc"]
+}
 
 
 def setup():
@@ -30,6 +34,28 @@ def save_conf(conf):
 
 def is_active(id_name):
     return "ACTIVE_GITID" in os.environ and os.environ["ACTIVE_GITID"] == id_name
+
+
+def init_shell(conf, args):
+    if args.shell not in SHELL_CONF_PATHS:
+        print(f"Unsupported shell: {args.shell}", file=sys.stderr)
+        sys.exit(1)
+    paths = SHELL_CONF_PATHS[args.shell]
+
+    def add_alias(path):
+        print(f"Adding alias to {path}")
+        with open(path, "a") as f:
+            f.write("alias gitid=\"source gitid\"\n")
+
+    added = False
+    for file in paths:
+        path = os.path.expanduser(os.path.join("~", file))
+        if os.path.isfile(path):
+            add_alias(path)
+            added = True
+            break
+    if not added:
+        add_alias(os.path.expanduser(os.path.join("~", paths[-1])))
 
 
 def set_id(conf, args) -> List[str]:
@@ -110,6 +136,10 @@ def get_args():
         prog="gitid",
         description="Command-line tool for managing multiple git identities on the same machine.")
     subparsers = parser.add_subparsers(required=True)
+
+    init_parser = subparsers.add_parser("init", help="Initialize a new shell to work with gitid")
+    init_parser.add_argument("shell", help="The name of the POSIX-compliant shell to initialize")
+    init_parser.set_defaults(func=init_shell)
 
     set_parser = subparsers.add_parser("set", help="Set the active identity")
     set_parser.add_argument("identity", help="The identity to activate")
