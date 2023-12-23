@@ -7,8 +7,12 @@ import yaml
 
 CONF_PATH = os.path.join(os.environ["HOME"], ".gitid.conf")
 SHELL_CONF_PATHS = {
-    "bash": [".bash_aliases", ".bashrc"],
-    "zsh": [".zsh_aliases", ".zshrc"]
+    "bash": [".bash_aliases", ".bashrc", ".bash_profile"],
+    "zsh": [".zsh_aliases", ".zshrc", ".zprofile"],
+    "sh": [".shrc", ".shinit", ".profile"],
+    "fish": [os.path.join(".config", "fish", "config.fish")],
+    "csh": [".cshrc"],
+    "tcsh": [".tcshrc", ".cshrc"]
 }
 
 
@@ -36,13 +40,14 @@ def is_active(id_name):
     return "ACTIVE_GITID" in os.environ and os.environ["ACTIVE_GITID"] == id_name
 
 
-def init_shell(conf, args):
+def init_shell(_, args):
     if args.shell not in SHELL_CONF_PATHS:
         print(f"Unsupported shell: {args.shell}", file=sys.stderr)
         sys.exit(1)
     paths = SHELL_CONF_PATHS[args.shell]
 
     def add_alias(path):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
         print(f"Adding alias to {path}")
         with open(path, "a") as f:
             f.write("alias gitid=\"source gitid\"\n")
@@ -56,6 +61,7 @@ def init_shell(conf, args):
             break
     if not added:
         add_alias(os.path.expanduser(os.path.join("~", paths[-1])))
+    print("Shell initialized! Please close and re-open any existing sessions.")
 
 
 def set_id(conf, args) -> List[str]:
