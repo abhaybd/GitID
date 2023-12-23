@@ -40,6 +40,10 @@ def is_active(id_name):
     return "ACTIVE_GITID" in os.environ and os.environ["ACTIVE_GITID"] == id_name
 
 
+def create_echo(s):
+    return f"echo \"{s}\""
+
+
 def init_shell(_, args):
     if args.shell not in SHELL_CONF_PATHS:
         print(f"Unsupported shell: {args.shell}", file=sys.stderr)
@@ -76,6 +80,7 @@ def set_id(conf, args) -> List[str]:
         f"export GIT_AUTHOR_EMAIL=\"{entry['email']}\"",
         f"export GIT_COMMITTER_NAME=\"{entry['name']}\"",
         f"export GIT_COMMITTER_EMAIL=\"{entry['email']}\"",
+        create_echo(f"Set active identity: {entry['name']} <{entry['email']}>"),
     ]
     return commands
 
@@ -111,18 +116,19 @@ def remove_id(conf, args) -> List[str]:
     if args.identity not in ids:
         print(f"Unknown identity {args.identity}", file=sys.stderr)
         sys.exit(1)
+    entry = ids[args.identity]
     del ids[args.identity]
     save_conf(conf)
+    commands = [create_echo(f"Removed identity: {entry['name']} <{entry['email']}>")]
     if is_active(args.identity):
-        return [
+        commands += [
             "unset ACTIVE_GITID",
             "unset GIT_AUTHOR_NAME",
             "unset GIT_AUTHOR_EMAIL",
             "unset GIT_COMMITTER_NAME",
             "unset GIT_COMMITTER_EMAIL"
         ]
-    else:
-        return []
+    return commands
 
 
 def clear_ids(conf, _):
