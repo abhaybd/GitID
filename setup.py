@@ -2,11 +2,12 @@ from setuptools import setup
 
 setup(
     name="gitid",
-    version="0.1.1",
+    version="0.1.2",
     author="Abhay Deshpande",
     description="Command-line tool for managing multiple git identities on the same machine",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
+    url="https://github.com/abhaybd/GitID",
     py_modules=["gitid.main"],
     scripts=["bin/gitid"],
     install_requires=[
