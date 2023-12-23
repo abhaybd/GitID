@@ -3,17 +3,23 @@ import sys
 from typing import List
 import os
 import yaml
+import re
 
 
 CONF_PATH = os.path.join(os.environ["HOME"], ".gitid.conf")
+# maps shells to startup files (paths relative to home) in decreasing order of priority
 SHELL_CONF_PATHS = {
     "bash": [".bash_aliases", ".bashrc", ".bash_profile"],
     "zsh": [".zsh_aliases", ".zshrc", ".zprofile"],
     "sh": [".shrc", ".shinit", ".profile"],
     "fish": [os.path.join(".config", "fish", "config.fish")],
     "csh": [".cshrc"],
-    "tcsh": [".tcshrc", ".cshrc"]
+    "tcsh": [".tcshrc", ".cshrc"],
+    "ksh": [".kshrc", ".profile"]
 }
+
+ALIAS_SNIPPET = "# >>> gitid initialize >>>\nalias gitid=\"source gitid\"\n# <<< gitid initialize <<<"
+ALIAS_PATTERN = r"# >>> gitid initialize >>>[\s\S]+?# <<< gitid initialize <<<"
 
 
 def setup():
@@ -53,8 +59,14 @@ def init_shell(_, args):
     def add_alias(path):
         os.makedirs(os.path.dirname(path), exist_ok=True)
         print(f"Adding alias to {path}")
-        with open(path, "a") as f:
-            f.write("alias gitid=\"source gitid\"\n")
+        with open(path) as f:
+            contents = f.read()
+        if re.search(ALIAS_PATTERN, contents):
+            contents = re.sub(ALIAS_PATTERN, ALIAS_SNIPPET, contents)
+        else:
+            contents += f"{ALIAS_SNIPPET}\n\n"
+        with open(path, "w") as f:
+            f.write(contents)
 
     added = False
     for file in paths:
