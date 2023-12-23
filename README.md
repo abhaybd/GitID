@@ -16,7 +16,7 @@ gitid init bash # substitute with your shell of choice
 
 ### Unsupported shell
 
-If your shell is unsupported by `gitid init`, simply add `alias gitid="source gitid"` to the appropriate config file of your shell, i.e. `.shrc`.
+If your shell is unsupported by `gitid init`, simply add `alias gitid="source gitid"` to the appropriate startup file of your shell.
 
 ## Workflow
 

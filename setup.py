@@ -1,12 +1,13 @@
-from setuptools import setup, find_packages
+from setuptools import setup
 
 setup(
     name="gitid",
-    version="0.1.0",
+    version="0.1.1",
     author="Abhay Deshpande",
     description="Command-line tool for managing multiple git identities on the same machine",
     long_description=open("README.md").read(),
-    packages=find_packages(include=["gitid", "gitid.*"]),
+    long_description_content_type="text/markdown",
+    py_modules=["gitid.main"],
     scripts=["bin/gitid"],
     install_requires=[
         "PyYAML"
@@ -17,7 +18,7 @@ setup(
         "Operating System :: POSIX",
         "Environment :: Console",
         "Topic :: Software Development :: Version Control :: Git",
-        "Topic :: Utilities"
+        "Topic :: Utilities",
         "Intended Audience :: Developers"
     ]
 )
