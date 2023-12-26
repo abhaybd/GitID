@@ -1,10 +1,25 @@
 #!/usr/bin/env bash
 
+# Helper function, modified from https://stackoverflow.com/a/28776166/6202029
+is_sourced() {
+    if [ -n "$ZSH_VERSION" ]; then
+        case $ZSH_EVAL_CONTEXT in *:file:*) return 0;; esac
+    else  # Add additional POSIX-compatible shell names here, if needed.
+        case ${0##*/} in dash|-dash|bash|-bash|ksh|-ksh|sh|-sh|fish|-fish|csh|-csh|tcsh|-tcsh) return 0;; esac
+    fi
+    return 1  # NOT sourced.
+}
+
 stdout=$(python -m gitid.main "$@" 2>&1)
 ret=$?
 
-if [[ $ret -eq "99" ]]; then
-    eval "${stdout}"
+if [[ $ret -eq 99 ]]; then
+    is_sourced && sourced=1 || sourced=0
+    if [[ $sourced -eq 1 ]]; then
+        eval "${stdout}"
+    else
+        echo "Error: GitID was not invoked correctly! Have you run gitid init and restarted your shell?"
+    fi
 elif [[ -n "${stdout}" ]]; then
     echo "${stdout}"
 fi

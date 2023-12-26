@@ -54,29 +54,19 @@ def init_shell(_, args):
     if args.shell not in SHELL_CONF_PATHS:
         print(f"Unsupported shell: {args.shell}", file=sys.stderr)
         sys.exit(1)
-    paths = SHELL_CONF_PATHS[args.shell]
+    paths = [os.path.expanduser(os.path.join("~", f)) for f in SHELL_CONF_PATHS[args.shell]]
+    path = next(filter(os.path.isfile, paths), paths[-1])
 
-    def add_alias(path):
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        print(f"Adding alias to {path}")
-        with open(path) as f:
-            contents = f.read()
-        if re.search(ALIAS_PATTERN, contents):
-            contents = re.sub(ALIAS_PATTERN, ALIAS_SNIPPET, contents)
-        else:
-            contents += f"{ALIAS_SNIPPET}\n\n"
-        with open(path, "w") as f:
-            f.write(contents)
-
-    added = False
-    for file in paths:
-        path = os.path.expanduser(os.path.join("~", file))
-        if os.path.isfile(path):
-            add_alias(path)
-            added = True
-            break
-    if not added:
-        add_alias(os.path.expanduser(os.path.join("~", paths[-1])))
+    print(f"Adding alias to {path}")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path) as f:
+        contents = f.read()
+    if re.search(ALIAS_PATTERN, contents):
+        contents = re.sub(ALIAS_PATTERN, ALIAS_SNIPPET, contents)
+    else:
+        contents += f"{ALIAS_SNIPPET}\n\n"
+    with open(path, "w") as f:
+        f.write(contents)
     print("Shell initialized! Please close and re-open any existing sessions.")
 
 
