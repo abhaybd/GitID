@@ -18,18 +18,34 @@ SHELL_CONF_PATHS = {
     "tcsh": [".tcshrc", ".cshrc"],
     "ksh": [".kshrc", ".profile"]
 }
+SHELL_CONF_PATHS = {
+    shell: [os.path.expanduser(os.path.join("~", p)) for p in paths] for shell, paths in SHELL_CONF_PATHS.items()
+}
 
-ALIAS_SNIPPET = f"# >>> gitid initialize >>>\nalias gitid=\"PYTHON_PATH='{sys.executable}' source gitid\"\n# <<< gitid initialize <<<"
-ALIAS_PATTERN = r"# >>> gitid initialize >>>[\s\S]+?# <<< gitid initialize <<<"
+ALIAS_SNIPPET = f"# >>> gitid initialize >>>\nalias gitid=\"PYTHON_PATH='{sys.executable}' source gitid\"\n# <<< gitid initialize <<<\n\n"
+ALIAS_SNIPPET = ALIAS_SNIPPET.replace("\\", "\\\\")  # duplicate backslashes for re.sub
+ALIAS_PATTERN = r"# >>> gitid initialize >>>[\s\S]+?# <<< gitid initialize <<<\n{0,2}"
 
 
-def setup():
+def setup_and_load_conf():
     # perform first time setup, if necessary
+    init_conf = {
+        "identities": {},
+        "shells": []
+    }
     if not os.path.isfile(CONF_PATH):
-        init_conf = {
-            "identities": {}
-        }
-        save_conf(init_conf)
+        conf = init_conf
+        save_conf(conf)
+    else:
+        conf = load_conf()
+        changed = False
+        for k, v in init_conf.items():
+            if k not in conf:
+                conf[k] = v
+                changed = True
+        if changed:
+            save_conf(conf)
+    return conf
 
 
 def load_conf():
@@ -51,24 +67,53 @@ def create_echo(s):
     return f"echo \"{s}\""
 
 
-def init_shell(_, args):
+def write_dotfile(path, pattern, repl, add_if_absent=True):
+    with open(path) as f:
+        contents = f.read()
+    if re.search(pattern, contents):
+        contents = re.sub(pattern, repl, contents)
+    elif add_if_absent:
+        contents += repl
+    with open(path, "w") as f:
+        f.write(contents)
+
+
+def init_shell(conf, args):
     if args.shell not in SHELL_CONF_PATHS:
         print(f"Unsupported shell: {args.shell}", file=sys.stderr)
         sys.exit(1)
-    paths = [os.path.expanduser(os.path.join("~", f)) for f in SHELL_CONF_PATHS[args.shell]]
+    paths = SHELL_CONF_PATHS[args.shell]
     path = next(filter(os.path.isfile, paths), paths[-1])
 
     print(f"Adding alias to {path}")
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path) as f:
-        contents = f.read()
-    if re.search(ALIAS_PATTERN, contents):
-        contents = re.sub(ALIAS_PATTERN, ALIAS_SNIPPET, contents)
-    else:
-        contents += f"{ALIAS_SNIPPET}\n\n"
-    with open(path, "w") as f:
-        f.write(contents)
+    write_dotfile(path, ALIAS_PATTERN, ALIAS_SNIPPET, add_if_absent=True)
+    if args.shell not in conf["shells"]:
+        conf["shells"].append(args.shell)
+    save_conf(conf)
     print("Shell initialized! Please close and re-open any existing sessions.")
+    return []
+
+
+def uninit(conf, args):
+    def uninit_shell(shell):
+        paths = SHELL_CONF_PATHS[shell]
+        for p in filter(os.path.isfile, paths):
+            write_dotfile(p, ALIAS_PATTERN, "", add_if_absent=False)
+        while shell in conf["shells"]:
+            conf["shells"].remove(shell)
+        print(f"Uninitialized {shell}")
+    if len(args.shells) == 0:
+        if len(conf["shells"]) == 0:
+            print("No shells to uninitialize.")
+        else:
+            for shell in conf["shells"].copy():  # copy since we modify in the loop
+                uninit_shell(shell)
+    else:
+        for shell in args.shells:
+            uninit_shell(shell)
+    save_conf(conf)
+    return []
 
 
 def set_id(conf, args) -> List[str]:
@@ -156,6 +201,12 @@ def get_args():
     init_parser.add_argument("shell", help="The name of the POSIX-compliant shell to initialize")
     init_parser.set_defaults(func=init_shell)
 
+    uninit_parser = subparsers.add_parser(
+        "uninit", help="Uninitialize a shell, undoing the effects of init")
+    uninit_parser.add_argument(
+        "shells", nargs="*", help="The names of the shells to uninitialize. If not provided then all initialized shells are uninitialized.")
+    uninit_parser.set_defaults(func=uninit)
+
     set_parser = subparsers.add_parser("set", help="Set the active identity")
     set_parser.add_argument("identity", help="The identity to activate")
     set_parser.set_defaults(func=set_id)
@@ -183,9 +234,8 @@ def get_args():
 
 def main():
     args = get_args()
-    setup()
 
-    conf = load_conf()
+    conf = setup_and_load_conf()
     commands = args.func(conf, args)
 
     if commands:
