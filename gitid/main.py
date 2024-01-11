@@ -68,8 +68,11 @@ def create_echo(s):
 
 
 def write_dotfile(path, pattern, repl, add_if_absent=True):
-    with open(path) as f:
-        contents = f.read()
+    if os.path.isfile(path):
+        with open(path) as f:
+            contents = f.read()
+    else:
+        contents = ""
     if re.search(pattern, contents):
         contents = re.sub(pattern, repl, contents)
     elif add_if_absent:
