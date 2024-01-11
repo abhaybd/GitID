@@ -10,7 +10,16 @@ is_sourced() {
     return 1  # NOT sourced.
 }
 
-stdout=$(python -m gitid.main "$@" 2>&1)
+# Choose the right python
+if [ -z ${PYTHON_PATH:+x} ]; then
+    if [ -n $(type -t python) ]; then
+        PYTHON_PATH=python
+    else
+        PYTHON_PATH=python3
+    fi
+fi
+
+stdout=$("${PYTHON_PATH}" -m gitid.main "$@" 2>&1)
 ret=$?
 
 if [[ $ret -eq 99 ]]; then

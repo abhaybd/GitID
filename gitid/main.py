@@ -4,6 +4,7 @@ from typing import List
 import os
 import yaml
 import re
+import sys
 
 
 CONF_PATH = os.path.join(os.environ["HOME"], ".gitid.conf")
@@ -18,7 +19,7 @@ SHELL_CONF_PATHS = {
     "ksh": [".kshrc", ".profile"]
 }
 
-ALIAS_SNIPPET = "# >>> gitid initialize >>>\nalias gitid=\"source gitid\"\n# <<< gitid initialize <<<"
+ALIAS_SNIPPET = f"# >>> gitid initialize >>>\nalias gitid=\"PYTHON_PATH='{sys.executable}' source gitid\"\n# <<< gitid initialize <<<"
 ALIAS_PATTERN = r"# >>> gitid initialize >>>[\s\S]+?# <<< gitid initialize <<<"
 
 
