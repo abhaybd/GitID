@@ -198,7 +198,7 @@ def get_args():
     parser = argparse.ArgumentParser(
         prog="gitid",
         description="Command-line tool for managing multiple git identities on the same machine.")
-    subparsers = parser.add_subparsers(required=True)
+    subparsers = parser.add_subparsers(required=True, dest="command")
 
     init_parser = subparsers.add_parser("init", help="Initialize a new shell to work with gitid")
     init_parser.add_argument("shell", help="The name of the POSIX-compliant shell to initialize")
