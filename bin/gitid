@@ -12,10 +12,17 @@ is_sourced() {
 
 # Choose the right python
 if [ -z ${PYTHON_PATH:+x} ]; then
-    if [ -n $(type -t python) ]; then
+    type -t python > /dev/null && has_py=1 || has_py=0
+    if [ $has_py -eq 1 ] && [ "$(python -c 'import sys; print(sys.version_info[0])' 2>&1)" -eq 3 ]; then
         PYTHON_PATH=python
     else
-        PYTHON_PATH=python3
+        type -t python3 > /dev/null && has_py3=1 || has_py3=0
+        if [ $has_py3 -eq 1 ]; then
+            PYTHON_PATH=python3
+        else
+            echo "Error: GitID requires Python 3. Please install it and try again." 1>&2
+            exit 1
+        fi
     fi
 fi
 
