@@ -14,6 +14,20 @@ pip install gitid
 gitid init bash # change to your shell of choice
 ```
 
+### Installation Issues
+
+Some environments may not place the script on the path. If your shell can't find the `gitid` script, you can do one of the following:
+
+Install with sudo:
+```bash
+sudo -H pip install gitid
+```
+
+Or add the following snippet to your `~/.bashrc` (or equivalent startup file):
+```bash
+export PATH="$PATH:<PATH_TO_GITID>"
+```
+
 ### Unsupported shell
 
 If your shell is unsupported by `gitid init`, simply add `alias gitid="source gitid"` to the appropriate startup file of your shell.
