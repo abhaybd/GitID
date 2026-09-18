@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=77.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gitid"
+version = "0.2.5"
+description = "Command-line tool for managing multiple git identities on the same machine"
+readme = "README.md"
+authors = [
+    { name = "Abhay Deshpande" }
+]
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.8"
+dependencies = [
+    "PyYAML"
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: POSIX",
+    "Environment :: Console",
+    "Topic :: Software Development :: Version Control :: Git",
+    "Topic :: Utilities",
+    "Intended Audience :: Developers",
+]
+
+[project.urls]
+Homepage = "https://github.com/abhaybd/GitID"
+
+[tool.setuptools]
+py-modules = ["gitid.main"]
+script-files = ["bin/gitid"]
