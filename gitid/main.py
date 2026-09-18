@@ -1,10 +1,12 @@
 import argparse
-import sys
-from typing import List
 import os
-import yaml
 import re
+import shlex
+import shutil
 import sys
+import sysconfig
+from typing import List
+import yaml
 
 
 CONF_PATH = os.path.join(os.environ["HOME"], ".gitid.conf")
@@ -22,7 +24,23 @@ SHELL_CONF_PATHS = {
     shell: [os.path.expanduser(os.path.join("~", p)) for p in paths] for shell, paths in SHELL_CONF_PATHS.items()
 }
 
-ALIAS_SNIPPET = f"# >>> gitid initialize >>>\nalias gitid=\"PYTHON_PATH='{sys.executable}' source gitid\"\n# <<< gitid initialize <<<\n\n"
+
+def _gitid_script_path():
+    """Absolute path to this install's gitid shell wrapper."""
+    installed = os.path.join(sysconfig.get_path("scripts"), "gitid")
+    if os.path.isfile(installed):
+        return os.path.realpath(installed)
+    which = shutil.which("gitid")
+    if which:
+        return os.path.realpath(which)
+    return os.path.realpath(installed)
+
+
+ALIAS_SNIPPET = (
+    "# >>> gitid initialize >>>\n"
+    f"alias gitid=\"PYTHON_PATH='{sys.executable}' source {shlex.quote(_gitid_script_path())}\"\n"
+    "# <<< gitid initialize <<<\n\n"
+)
 ALIAS_SNIPPET = ALIAS_SNIPPET.replace("\\", "\\\\")  # duplicate backslashes for re.sub
 ALIAS_PATTERN = r"# >>> gitid initialize >>>[\s\S]+?# <<< gitid initialize <<<\n{0,2}"
 
