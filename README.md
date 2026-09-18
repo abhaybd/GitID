@@ -14,6 +14,10 @@ pip install gitid
 gitid init bash # change to your shell of choice
 ```
 
+> [!NOTE]
+> GitID cannot be used with e.g. `pipx` or `uvx`, since it requires a persistent install
+
+
 ### Installation Issues
 
 Some environments may not place the script on the path. If your shell can't find the `gitid` script, you can do one of the following:
