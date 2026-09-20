@@ -1,60 +1,108 @@
 #!/usr/bin/env bash
 
-# Helper function, modified from https://stackoverflow.com/a/28776166/6202029
-is_sourced() {
-    if [ -n "$ZSH_VERSION" ]; then
-        case $ZSH_EVAL_CONTEXT in *:file:*) return 0;; esac
-    else  # Add additional POSIX-compatible shell names here, if needed.
-        case ${0##*/} in bash|-bash|ksh|-ksh) return 0;; esac
+# GitID must be sourced for commands that change the current shell. `gitid init`
+# installs an alias that does that and pins the Python interpreter for us.
+if [ -n "${ZSH_VERSION:-}" ]; then
+    case ${ZSH_EVAL_CONTEXT:-} in
+        *:file|*:file:*) _gitid_sourced=1 ;;
+        *) _gitid_sourced=0 ;;
+    esac
+else
+    case ${0##*/} in
+        bash|-bash|ksh|-ksh) _gitid_sourced=1 ;;
+        *) _gitid_sourced=0 ;;
+    esac
+fi
+
+_gitid_main() {
+    typeset sourced=$1
+    shift
+
+    typeset python=${PYTHON_PATH:-}
+    typeset script resolved directory candidate output result
+
+    # During `gitid init`, no alias exists yet. For pipx and uv installations,
+    # follow the wrapper symlink and use the Python executable beside it.
+    if [ -z "$python" ] && [ "$sourced" -eq 0 ]; then
+        script=$0
+        if [ ! -e "$script" ]; then
+            script=$(command -v gitid 2>/dev/null) || script=$0
+        fi
+        if command -v realpath >/dev/null 2>&1; then
+            resolved=$(realpath "$script")
+        elif [ -L "$script" ]; then
+            resolved=$(readlink "$script")
+            case $resolved in
+                /*) ;;
+                *) resolved=$(dirname "$script")/$resolved ;;
+            esac
+        else
+            resolved=$script
+        fi
+
+        directory=$(dirname "$resolved")
+        for candidate in "$directory/python3" "$directory/python"; do
+            if [ -x "$candidate" ]; then
+                python=$candidate
+                break
+            fi
+        done
     fi
-    return 1  # NOT sourced.
+
+    # Source checkouts and older installations may need a PATH interpreter.
+    # Prefer one that can already import GitID, then fall back to any Python 3.
+    if [ -z "$python" ]; then
+        for candidate in python python3; do
+            if command -v "$candidate" >/dev/null 2>&1 &&
+                    "$candidate" -c 'import gitid.main' >/dev/null 2>&1; then
+                python=$candidate
+                break
+            fi
+        done
+    fi
+    if [ -z "$python" ]; then
+        for candidate in python python3; do
+            if command -v "$candidate" >/dev/null 2>&1 &&
+                    [ "$("$candidate" -c 'import sys; print(sys.version_info[0])' 2>/dev/null)" = 3 ]; then
+                python=$candidate
+                break
+            fi
+        done
+    fi
+
+    if [ -z "$python" ]; then
+        echo "Error: GitID requires Python 3. Please install it and try again." >&2
+        return 1
+    fi
+
+    # Stdout is either normal output or, with exit 99, shell commands.
+    # Stderr remains attached to the terminal and must never be evaluated.
+    output=$("$python" -m gitid.main "$@")
+    result=$?
+
+    if [ "$result" -eq 99 ]; then
+        if [ "$sourced" -eq 1 ]; then
+            eval "$output"
+            result=$?
+        else
+            echo "Error: GitID was not invoked correctly! Have you run gitid init and restarted your shell?" >&2
+            result=1
+        fi
+    elif [ -n "$output" ]; then
+        printf '%s\n' "$output"
+    fi
+
+    return "$result"
 }
 
-gitid_status=0
+_gitid_main "$_gitid_sourced" "$@"
+_gitid_result=$?
+unset -f _gitid_main 2>/dev/null
 
-# Choose the right python
-if [ -z "${PYTHON_PATH:+x}" ]; then
-    if command -v python >/dev/null 2>&1; then
-        py_major=$(python -c 'import sys; print(sys.version_info[0])' 2>/dev/null) || py_major=
-        if [ "$py_major" = 3 ]; then
-            PYTHON_PATH=python
-        fi
-    fi
-    if [ -z "${PYTHON_PATH:+x}" ] && command -v python3 >/dev/null 2>&1; then
-        PYTHON_PATH=python3
-    fi
-    if [ -z "${PYTHON_PATH:+x}" ]; then
-        echo "Error: GitID requires Python 3. Please install it and try again." 1>&2
-        gitid_status=1
-    fi
+if [ "$_gitid_sourced" -eq 1 ]; then
+    unset _gitid_sourced
+    return "$_gitid_result"
 fi
 
-if [ "$gitid_status" -eq 0 ]; then
-    # Capture stdout only (needed for the exit-99 eval protocol).
-    # argparse --help goes to stdout; usage, errors, and warnings go to stderr
-    # and inherit the terminal. Do not merge with 2>&1 — that would eval
-    # stderr if Python exits 99.
-    stdout=$("${PYTHON_PATH}" -m gitid.main "$@")
-    ret=$?
-
-    if [ "$ret" -eq 99 ]; then
-        if is_sourced; then
-            eval "${stdout}"
-            gitid_status=$?
-        else
-            echo "Error: GitID was not invoked correctly! Have you run gitid init and restarted your shell?" 1>&2
-            gitid_status=1
-        fi
-    else
-        if [ -n "${stdout}" ]; then
-            printf '%s\n' "${stdout}"
-        fi
-        gitid_status=$ret
-    fi
-fi
-
-if is_sourced; then
-    return "$gitid_status"
-else
-    exit "$gitid_status"
-fi
+unset _gitid_sourced
+exit "$_gitid_result"
