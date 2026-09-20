@@ -8,33 +8,35 @@ Note that GitID only sets commit authors and committers, and does **not** affect
 
 ## Installation
 
-Installation is easy:
+GitID needs a persistent install so the shell alias can `source` its wrapper. Use pipx or `uv tool install` (not `uvx`):
+
 ```bash
-pip install gitid
-gitid init bash # change to your shell of choice
+pipx install gitid
+# or: uv tool install gitid
+gitid init bash   # bash, zsh, or ksh
+```
+
+If neither tool is available:
+
+```bash
+python3 -m pip install --user gitid
+gitid init bash
 ```
 
 > [!NOTE]
-> GitID cannot be used with e.g. `pipx` or `uvx`, since it requires a persistent install
-
+> `uvx` and other ephemeral runners will not work: the alias pins the install path, which disappears when the tool exits.
 
 ### Installation Issues
 
-Some environments may not place the script on the path. If your shell can't find the `gitid` script, you can do one of the following:
+Some environments may not place the script on the path. If your shell can't find the `gitid` script, add the pipx/`uv tool`/user-scripts directory to `PATH` in your startup file:
 
-Install with sudo:
-```bash
-sudo -H pip install gitid
-```
-
-Or add the following snippet to your `~/.bashrc` (or equivalent startup file):
 ```bash
 export PATH="$PATH:<PATH_TO_GITID>"
 ```
 
 ### Unsupported shell
 
-If your shell is unsupported by `gitid init`, simply add `alias gitid="source gitid"` to the appropriate startup file of your shell.
+`gitid init` supports bash, zsh, and ksh. For other shells, add an alias that sources the `gitid` wrapper (the script printed by `gitid init bash` on a machine with no startup file is a good template).
 
 ## Workflow
 
@@ -49,6 +51,11 @@ Now Frodo wants to write some code:
 gitid set frodo
 ... git commands ...
 git commit # This commit is marked with "Frodo Baggins <frodo@shire.com>" as the committer and author
+```
+
+To go back to the repository's own `user.name` / `user.email` in this session:
+```bash
+gitid unset
 ```
 
 Separately, possibly at the same time (in a different session), Samwise also wants to write code:
