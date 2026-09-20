@@ -5,37 +5,56 @@ is_sourced() {
     if [ -n "$ZSH_VERSION" ]; then
         case $ZSH_EVAL_CONTEXT in *:file:*) return 0;; esac
     else  # Add additional POSIX-compatible shell names here, if needed.
-        case ${0##*/} in dash|-dash|bash|-bash|ksh|-ksh|sh|-sh|fish|-fish|csh|-csh|tcsh|-tcsh) return 0;; esac
+        case ${0##*/} in bash|-bash|ksh|-ksh) return 0;; esac
     fi
     return 1  # NOT sourced.
 }
 
+gitid_status=0
+
 # Choose the right python
-if [ -z ${PYTHON_PATH:+x} ]; then
-    type -t python > /dev/null && has_py=1 || has_py=0
-    if [ $has_py -eq 1 ] && [ "$(python -c 'import sys; print(sys.version_info[0])' 2>&1)" -eq 3 ]; then
-        PYTHON_PATH=python
-    else
-        type -t python3 > /dev/null && has_py3=1 || has_py3=0
-        if [ $has_py3 -eq 1 ]; then
-            PYTHON_PATH=python3
-        else
-            echo "Error: GitID requires Python 3. Please install it and try again." 1>&2
-            exit 1
+if [ -z "${PYTHON_PATH:+x}" ]; then
+    if command -v python >/dev/null 2>&1; then
+        py_major=$(python -c 'import sys; print(sys.version_info[0])' 2>/dev/null) || py_major=
+        if [ "$py_major" = 3 ]; then
+            PYTHON_PATH=python
         fi
+    fi
+    if [ -z "${PYTHON_PATH:+x}" ] && command -v python3 >/dev/null 2>&1; then
+        PYTHON_PATH=python3
+    fi
+    if [ -z "${PYTHON_PATH:+x}" ]; then
+        echo "Error: GitID requires Python 3. Please install it and try again." 1>&2
+        gitid_status=1
     fi
 fi
 
-stdout=$("${PYTHON_PATH}" -m gitid.main "$@" 2>&1)
-ret=$?
+if [ "$gitid_status" -eq 0 ]; then
+    # Capture stdout only (needed for the exit-99 eval protocol).
+    # argparse --help goes to stdout; usage, errors, and warnings go to stderr
+    # and inherit the terminal. Do not merge with 2>&1 — that would eval
+    # stderr if Python exits 99.
+    stdout=$("${PYTHON_PATH}" -m gitid.main "$@")
+    ret=$?
 
-if [[ $ret -eq 99 ]]; then
-    is_sourced && sourced=1 || sourced=0
-    if [[ $sourced -eq 1 ]]; then
-        eval "${stdout}"
+    if [ "$ret" -eq 99 ]; then
+        if is_sourced; then
+            eval "${stdout}"
+            gitid_status=$?
+        else
+            echo "Error: GitID was not invoked correctly! Have you run gitid init and restarted your shell?" 1>&2
+            gitid_status=1
+        fi
     else
-        echo "Error: GitID was not invoked correctly! Have you run gitid init and restarted your shell?"
+        if [ -n "${stdout}" ]; then
+            printf '%s\n' "${stdout}"
+        fi
+        gitid_status=$ret
     fi
-elif [[ -n "${stdout}" ]]; then
-    echo "${stdout}"
+fi
+
+if is_sourced; then
+    return "$gitid_status"
+else
+    exit "$gitid_status"
 fi
