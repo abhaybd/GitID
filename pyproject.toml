@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gitid"
-version = "0.2.6"
+version = "0.2.7"
 description = "Command-line tool for managing multiple git identities on the same machine"
 readme = "README.md"
 authors = [
